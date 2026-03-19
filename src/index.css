@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@300;400;500;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 99%;
+    --foreground: 270 20% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 270 20% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 270 20% 15%;
+
+    --primary: 280 45% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 43 55% 65%;
+    --secondary-foreground: 270 20% 15%;
+
+    --muted: 270 10% 95%;
+    --muted-foreground: 270 10% 45%;
+
+    --accent: 43 70% 55%;
+    --accent-foreground: 270 20% 15%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 270 15% 90%;
+    --input: 270 15% 90%;
+    --ring: 280 45% 55%;
+
+    --radius: 0.75rem;
+
+    --gold: 43 70% 55%;
+    --gold-light: 43 60% 75%;
+    --gold-dark: 43 70% 40%;
+    --purple-light: 280 40% 75%;
+    --purple-dark: 280 50% 35%;
+    --diamond-bg: 0 0% 96%;
+
+    --sidebar-background: 270 20% 12%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 280 45% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 270 20% 20%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 270 15% 25%;
+    --sidebar-ring: 280 45% 55%;
+  }
+
+  .dark {
+    --background: 270 20% 8%;
+    --foreground: 0 0% 95%;
+
+    --card: 270 20% 12%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 270 20% 12%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 280 50% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 43 55% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 270 15% 18%;
+    --muted-foreground: 270 10% 65%;
+
+    --accent: 43 65% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 270 15% 22%;
+    --input: 270 15% 22%;
+    --ring: 280 50% 60%;
+
+    --gold: 43 65% 50%;
+    --gold-light: 43 50% 40%;
+    --gold-dark: 43 70% 60%;
+    --purple-light: 280 40% 45%;
+    --purple-dark: 280 50% 70%;
+    --diamond-bg: 270 15% 12%;
+
+    --sidebar-background: 270 25% 6%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 280 50% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 270 20% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 270 15% 18%;
+    --sidebar-ring: 280 50% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    direction: rtl;
+  }
+  body {
+    @apply bg-background text-foreground font-cairo;
+  }
+}
+
+@layer utilities {
+  .diamond-pattern {
+    background-image: 
+      linear-gradient(45deg, hsl(var(--diamond-bg)) 25%, transparent 25%),
+      linear-gradient(-45deg, hsl(var(--diamond-bg)) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, hsl(var(--diamond-bg)) 75%),
+      linear-gradient(-45deg, transparent 75%, hsl(var(--diamond-bg)) 75%);
+    background-size: 60px 60px;
+    background-position: 0 0, 0 30px, 30px -30px, -30px 0px;
+  }
+
+  .gradient-gold {
+    background: linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(var(--gold-light)) 50%, hsl(var(--gold)) 100%);
+  }
+
+  .gradient-purple {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--purple-dark)) 100%);
+  }
+
+  .gradient-hero {
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.05) 0%, hsl(var(--gold) / 0.08) 50%, hsl(var(--primary) / 0.03) 100%);
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(135deg, hsl(var(--gold-dark)), hsl(var(--gold)), hsl(var(--gold-dark)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-purple {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--purple-light)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shadow-luxury {
+    box-shadow: 0 10px 40px -10px hsl(var(--primary) / 0.2), 0 4px 15px -5px hsl(var(--gold) / 0.15);
+  }
+
+  .border-gold {
+    border-color: hsl(var(--gold));
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.3), 0 0 60px hsl(var(--primary) / 0.1);
+  }
+}
