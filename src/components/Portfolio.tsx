@@ -2,17 +2,18 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { fetchWorks, type Work } from "@/lib/db";
-
-const categories = ["الكل", "هوية", "تصميم", "مونتاج"];
+import { fetchWorks, fetchCategories, type Work, type Category } from "@/lib/db";
 
 const Portfolio = () => {
   const [filter, setFilter] = useState("الكل");
   const [works, setWorks] = useState<Work[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchWorks().then(setWorks).catch(console.error);
+    Promise.all([fetchWorks(), fetchCategories()])
+      .then(([w, c]) => { setWorks(w); setCategories(c); })
+      .catch(console.error);
   }, []);
 
   const filtered = filter === "الكل" ? works : works.filter((w) => w.category === filter);
@@ -31,17 +32,27 @@ const Portfolio = () => {
         </motion.div>
 
         <div className="flex justify-center gap-3 mb-12 flex-wrap">
+          <button
+            onClick={() => setFilter("الكل")}
+            className={`px-6 py-2 rounded-full font-medium transition-all ${
+              filter === "الكل"
+                ? "gradient-purple text-primary-foreground shadow-luxury"
+                : "bg-muted text-muted-foreground hover:bg-primary/10"
+            }`}
+          >
+            الكل
+          </button>
           {categories.map((cat) => (
             <button
-              key={cat}
-              onClick={() => setFilter(cat)}
+              key={cat.id}
+              onClick={() => setFilter(cat.name)}
               className={`px-6 py-2 rounded-full font-medium transition-all ${
-                filter === cat
+                filter === cat.name
                   ? "gradient-purple text-primary-foreground shadow-luxury"
                   : "bg-muted text-muted-foreground hover:bg-primary/10"
               }`}
             >
-              {cat}
+              {cat.name}
             </button>
           ))}
         </div>

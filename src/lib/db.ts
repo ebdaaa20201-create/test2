@@ -13,6 +13,50 @@ export interface Work {
   created_at?: string;
 }
 
+export interface Category {
+  id: number;
+  name: string;
+  sort_order: number;
+  created_at?: string;
+}
+
+// Categories
+export const fetchCategories = async (): Promise<Category[]> => {
+  const { data, error } = await supabase
+    .from("categories")
+    .select("*")
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return data || [];
+};
+
+export const addCategory = async (name: string, sort_order: number) => {
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({ name, sort_order })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const updateCategory = async (id: number, updates: Partial<Category>) => {
+  const { id: _, created_at: __, ...rest } = updates as any;
+  const { error } = await supabase
+    .from("categories")
+    .update(rest)
+    .eq("id", id);
+  if (error) throw error;
+};
+
+export const deleteCategory = async (id: number) => {
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+};
+
 // Portfolio Works
 export const fetchWorks = async (): Promise<Work[]> => {
   const { data, error } = await supabase

@@ -2,13 +2,15 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Eye, MessageCircle, Image, Plus, Trash2, ArrowRight, LogOut,
-  Edit3, LayoutDashboard, FolderOpen, Settings, Upload, User, Lock, ImageIcon, AlertCircle
+  Edit3, LayoutDashboard, FolderOpen, Settings, Upload, User, Lock, ImageIcon, AlertCircle,
+  Tag, GripVertical, ArrowUp, ArrowDown
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchWorks, addWork as dbAddWork, updateWork as dbUpdateWork, deleteWork as dbDeleteWork,
-  getStats, getSetting, setSetting, type Work
+  getStats, getSetting, setSetting, fetchCategories, addCategory, updateCategory, deleteCategory,
+  type Work, type Category
 } from "@/lib/db";
 
 const Dashboard = () => {
@@ -19,24 +21,28 @@ const Dashboard = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "works" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "works" | "categories" | "settings">("overview");
   const [visits, setVisits] = useState(0);
   const [requests, setRequests] = useState(0);
   const [works, setWorks] = useState<Work[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [editingWork, setEditingWork] = useState<Work | null>(null);
   const [newWork, setNewWork] = useState<Partial<Work>>({
-    title: "", category: "تصميم", image: "", description: "",
+    title: "", category: "", image: "", description: "",
     images: [], client: "", duration: "", tools: ""
   });
   const [logoUrl, setLogoUrl] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Category management state
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   // Check auth state
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         setIsAuth(true);
-        // Check admin role
         const { data } = await supabase
           .from("user_roles")
           .select("role")
@@ -70,13 +76,14 @@ const Dashboard = () => {
 
   const loadData = async () => {
     try {
-      const [worksData, stats, logo] = await Promise.all([
-        fetchWorks(), getStats(), getSetting("site_logo"),
+      const [worksData, stats, logo, cats] = await Promise.all([
+        fetchWorks(), getStats(), getSetting("site_logo"), fetchCategories(),
       ]);
       setWorks(worksData);
       setVisits(stats.total_visits || 0);
       setRequests(stats.total_requests || 0);
       setLogoUrl(logo);
+      setCategories(cats);
     } catch (err) {
       console.error("Error loading data:", err);
     }
@@ -106,12 +113,12 @@ const Dashboard = () => {
     setSaving(true);
     try {
       await dbAddWork({
-        title: newWork.title!, category: newWork.category || "تصميم",
+        title: newWork.title!, category: newWork.category || categories[0]?.name || "",
         image: newWork.image!, description: newWork.description || "",
         images: newWork.images?.filter(Boolean) || [newWork.image!],
         client: newWork.client || "", duration: newWork.duration || "", tools: newWork.tools || "",
       });
-      setNewWork({ title: "", category: "تصميم", image: "", description: "", images: [], client: "", duration: "", tools: "" });
+      setNewWork({ title: "", category: categories[0]?.name || "", image: "", description: "", images: [], client: "", duration: "", tools: "" });
       await loadData();
     } catch (err) { console.error(err); }
     setSaving(false);
@@ -136,6 +143,49 @@ const Dashboard = () => {
     setSaving(true);
     try { await setSetting("site_logo", logoUrl); alert("تم حفظ الشعار بنجاح!"); } catch (err) { console.error(err); }
     setSaving(false);
+  };
+
+  // Category handlers
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    setSaving(true);
+    try {
+      const maxOrder = categories.length > 0 ? Math.max(...categories.map(c => c.sort_order)) : 0;
+      await addCategory(newCategoryName.trim(), maxOrder + 1);
+      setNewCategoryName("");
+      await loadData();
+    } catch (err) { console.error(err); }
+    setSaving(false);
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory) return;
+    setSaving(true);
+    try {
+      await updateCategory(editingCategory.id, { name: editingCategory.name, sort_order: editingCategory.sort_order });
+      setEditingCategory(null);
+      await loadData();
+    } catch (err) { console.error(err); }
+    setSaving(false);
+  };
+
+  const handleDeleteCategory = async (id: number) => {
+    if (!confirm("هل تريد حذف هذا التصنيف؟")) return;
+    try { await deleteCategory(id); await loadData(); } catch (err) { console.error(err); }
+  };
+
+  const handleMoveCategory = async (cat: Category, direction: "up" | "down") => {
+    const idx = categories.findIndex(c => c.id === cat.id);
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= categories.length) return;
+    const other = categories[swapIdx];
+    try {
+      await Promise.all([
+        updateCategory(cat.id, { sort_order: other.sort_order }),
+        updateCategory(other.id, { sort_order: cat.sort_order }),
+      ]);
+      await loadData();
+    } catch (err) { console.error(err); }
   };
 
   if (authLoading) {
@@ -200,6 +250,7 @@ const Dashboard = () => {
   const sidebarItems = [
     { id: "overview" as const, label: "نظرة عامة", icon: LayoutDashboard },
     { id: "works" as const, label: "إدارة الأعمال", icon: FolderOpen },
+    { id: "categories" as const, label: "التصنيفات", icon: Tag },
     { id: "settings" as const, label: "الإعدادات", icon: Settings },
   ];
 
@@ -296,7 +347,10 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <input value={newWork.title} onChange={(e) => setNewWork({ ...newWork, title: e.target.value })} placeholder="عنوان العمل" className="px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none" />
                 <select value={newWork.category} onChange={(e) => setNewWork({ ...newWork, category: e.target.value })} className="px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none">
-                  <option>تصميم</option><option>هوية</option><option>مونتاج</option>
+                  <option value="">اختر التصنيف</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
                 </select>
                 <input value={newWork.image} onChange={(e) => setNewWork({ ...newWork, image: e.target.value })} placeholder="رابط الصورة الرئيسية" className="px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none" dir="ltr" />
                 <input value={newWork.description || ""} onChange={(e) => setNewWork({ ...newWork, description: e.target.value })} placeholder="وصف العمل" className="px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none" />
@@ -317,7 +371,9 @@ const Dashboard = () => {
                   <h3 className="text-lg font-bold font-tajawal text-gradient-purple">تعديل العمل</h3>
                   <input value={editingWork.title} onChange={(e) => setEditingWork({ ...editingWork, title: e.target.value })} placeholder="العنوان" className="w-full px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none" />
                   <select value={editingWork.category} onChange={(e) => setEditingWork({ ...editingWork, category: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none">
-                    <option>تصميم</option><option>هوية</option><option>مونتاج</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
                   </select>
                   <input value={editingWork.image} onChange={(e) => setEditingWork({ ...editingWork, image: e.target.value })} placeholder="رابط الصورة" className="w-full px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none" dir="ltr" />
                   <input value={editingWork.description || ""} onChange={(e) => setEditingWork({ ...editingWork, description: e.target.value })} placeholder="الوصف" className="w-full px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none" />
@@ -350,6 +406,73 @@ const Dashboard = () => {
                       <div className="flex gap-2 flex-shrink-0">
                         <button onClick={() => setEditingWork(work)} className="p-2.5 text-primary hover:bg-primary/10 rounded-xl transition-colors" title="تعديل"><Edit3 size={16} /></button>
                         <button onClick={() => handleDeleteWork(work.id)} className="p-2.5 text-destructive hover:bg-destructive/10 rounded-xl transition-colors" title="حذف"><Trash2 size={16} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === "categories" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <h2 className="text-2xl font-black font-tajawal mb-8 text-foreground">إدارة التصنيفات</h2>
+
+            {/* Add new category */}
+            <div className="bg-card rounded-2xl p-6 shadow-luxury border border-border mb-8">
+              <h3 className="text-lg font-bold font-tajawal mb-6 flex items-center gap-2"><Plus size={20} className="text-primary" />إضافة تصنيف جديد</h3>
+              <div className="flex gap-3">
+                <input
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="اسم التصنيف"
+                  className="flex-1 px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none"
+                  onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                />
+                <button onClick={handleAddCategory} disabled={saving || !newCategoryName.trim()} className="gradient-purple text-primary-foreground rounded-xl px-8 py-3 font-bold flex items-center gap-2 disabled:opacity-50">
+                  <Plus size={18} />{saving ? "جاري الإضافة..." : "إضافة"}
+                </button>
+              </div>
+            </div>
+
+            {/* Edit category modal */}
+            {editingCategory && (
+              <div className="fixed inset-0 z-50 bg-foreground/50 flex items-center justify-center p-4" onClick={() => setEditingCategory(null)}>
+                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-card rounded-2xl p-6 shadow-luxury border border-border w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-lg font-bold font-tajawal text-gradient-purple">تعديل التصنيف</h3>
+                  <input
+                    value={editingCategory.name}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                    placeholder="اسم التصنيف"
+                    className="w-full px-4 py-3 rounded-xl bg-muted border border-border focus:border-primary outline-none"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={handleUpdateCategory} disabled={saving} className="flex-1 py-3 gradient-purple text-primary-foreground rounded-xl font-bold disabled:opacity-50">{saving ? "جاري الحفظ..." : "حفظ"}</button>
+                    <button onClick={() => setEditingCategory(null)} className="px-6 py-3 bg-muted rounded-xl font-bold text-muted-foreground">إلغاء</button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+
+            {/* Categories list */}
+            <div className="bg-card rounded-2xl p-6 shadow-luxury border border-border">
+              <h3 className="text-lg font-bold font-tajawal mb-6">التصنيفات ({categories.length})</h3>
+              {categories.length === 0 ? (
+                <p className="text-center text-muted-foreground py-12">لا توجد تصنيفات بعد.</p>
+              ) : (
+                <div className="space-y-3">
+                  {categories.map((cat, idx) => (
+                    <div key={cat.id} className="flex items-center gap-4 p-4 rounded-xl bg-muted/50 border border-border hover:border-primary/30 transition-all">
+                      <GripVertical size={18} className="text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-foreground">{cat.name}</h4>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => handleMoveCategory(cat, "up")} disabled={idx === 0} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-30" title="نقل للأعلى"><ArrowUp size={16} /></button>
+                        <button onClick={() => handleMoveCategory(cat, "down")} disabled={idx === categories.length - 1} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-30" title="نقل للأسفل"><ArrowDown size={16} /></button>
+                        <button onClick={() => setEditingCategory(cat)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors" title="تعديل"><Edit3 size={16} /></button>
+                        <button onClick={() => handleDeleteCategory(cat.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="حذف"><Trash2 size={16} /></button>
                       </div>
                     </div>
                   ))}
